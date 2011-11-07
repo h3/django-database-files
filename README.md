@@ -25,10 +25,16 @@ In ``settings.py``, add ``database_files`` to your ``INSTALLED_APPS`` and add th
 
     DEFAULT_FILE_STORAGE = 'database_files.storage.DatabaseStorage'
 
-Although ``upload_to`` is a required argument on ``FileField``, it is not used for 
-storing files in the database. Just set it to a dummy value:
+In ``urls.py`` you must serve static files like this:
 
-    upload = models.FileField(upload_to='not required')
+    if settings.DEV:
+        if 'database_files' in settings.INSTALLED_APPS:
+            urlpatterns += patterns('', 
+                    url(r'^%s(.*)$' % settings.MEDIA_URL[1:], 'database_files.views.serve', 
+                        {'document_root': 'media'}, name='database_file'),)
+        else:
+            urlpatterns += patterns('', (r'^%s(.*)$' % settings.MEDIA_URL[1:], 'django.views.static.serve', {'document_root': 'media'}),)
+
 
 All your ``FileField`` and ``ImageField`` files will now be stored in the 
 database.
