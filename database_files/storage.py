@@ -1,5 +1,6 @@
 import base64
 from database_files import models
+from django.db import IntegrityError
 from django.core import files
 from django.core.files.storage import Storage
 from django.core.urlresolvers import reverse
@@ -7,17 +8,25 @@ import os
 import StringIO
 
 class DatabaseStorage(Storage):
+    _path = False
     def _generate_name(self, name, pk):
         """
         Replaces the filename with the specified pk and removes any dir
         """
+        self._path = name
         dir_name, file_name = os.path.split(name)
-        file_root, file_ext = os.path.splitext(file_name)
-        return '%s%s' % (pk, file_ext)
+       #file_root, file_ext = os.path.splitext(file_name)
+        return file_name
+
+    def path(self, name):
+        if self._path:
+            return self._path
+        self._path = name
+        return name
     
     def _open(self, name, mode='rb'):
         try:
-            f = models.File.objects.get_from_name(name)
+            f = models.File.objects.get(name=name)
         except models.File.DoesNotExist:
             return None
         fh = StringIO.StringIO(base64.b64decode(f.content))
@@ -27,16 +36,24 @@ class DatabaseStorage(Storage):
         return files.File(fh)
     
     def _save(self, name, content):
-        f = models.File.objects.create(
-            content=base64.b64encode(content.read()),
-            size=content.size,
-        )
-        return self._generate_name(name, f.pk)
+        try:
+            f = models.File.objects.create(
+                name=name,
+                content=base64.b64encode(content.read()),
+                size=content.size,
+            )
+        except IntegrityError:
+            # Updating existing image
+            f = models.File.objects.get(name=name)
+            f.content = base64.b64encode(content.read())
+            f.size = content.size
+            f.save()
+
+        return name
     
     def exists(self, name):
         """
-        We generate a new filename for each file, so it will never already 
-        exist.
+        We overwrite existing files in db, so no need to check if it exists
         """
         return False
     
