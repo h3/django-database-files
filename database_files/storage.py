@@ -1,5 +1,6 @@
 import base64
 from database_files import models
+from django.conf import settings
 from django.db import IntegrityError
 from django.core import files
 from django.core.files.storage import Storage
@@ -64,7 +65,8 @@ class DatabaseStorage(Storage):
             pass
     
     def url(self, name):
-        return reverse('database_file', kwargs={'name': name})
+        return os.path.join(settings.MEDIA_URL, name)
+        #return reverse('database_file', kwargs={'name': name})
     
     def size(self, name):
         try:
